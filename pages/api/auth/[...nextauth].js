@@ -1,17 +1,17 @@
-import NextAuth from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
-import LinkedInProvider from 'next-auth/providers/linkedin';
-import CredentialsProvider from 'next-auth/providers/credentials';
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import clientPromise from '../../../lib/mongodb';
 import bcrypt from 'bcryptjs';
 
 export const authOptions = {
+  debug: true,
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "Credentials",
       credentials: {
-        email: { label: 'Email', type: 'text' },
-        password: { label: 'Password', type: 'password' }
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         try {
@@ -32,81 +32,78 @@ export const authOptions = {
           console.error('Credentials auth error:', error);
           return null;
         }
-      }
+      },
     }),
+
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    LinkedInProvider({
+
+    // LinkedIn OAuth with OpenID Connect scopes (your app only has OIDC permissions)
+    {
+      id: "linkedin",
+      name: "LinkedIn",
+      type: "oauth",
       clientId: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-    })
+      wellKnown: "https://www.linkedin.com/oauth/.well-known/openid-configuration",
+      authorization: {
+        params: {
+          scope: "openid profile email",
+        },
+      },
+      issuer: "https://www.linkedin.com/oauth",
+      token: {
+        url: "https://www.linkedin.com/oauth/v2/accessToken",
+      },
+      client: {
+        token_endpoint_auth_method: "client_secret_post",
+      },
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name || `${profile.given_name || ''} ${profile.family_name || ''}`.trim() || 'LinkedIn User',
+          email: profile.email,
+          image: profile.picture,
+          linkedin: `https://www.linkedin.com/in/${profile.sub}`,
+        };
+      },
+      checks: ["state"],
+      idToken: true,
+    }
   ],
+
   pages: {
     signIn: '/login',
     error: '/login',
   },
+
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
   },
+
   secret: process.env.NEXTAUTH_SECRET,
-  debug: true,
+
   callbacks: {
-    async jwt({ token, user, account, profile }) {
-      if (account && user) {
-        token.provider = account.provider;
-        
-        try {
-          const client = await clientPromise;
-          const users = client.db().collection('users');
-          const existingUser = await users.findOne({ email: user.email });
-          
-          if (existingUser) {
-            // Update existing user
-            const updates = { 
-              lastLogin: new Date(),
-              provider: account.provider 
-            };
-            
-            if (!existingUser.image && user.image) updates.image = user.image;
-            if (!existingUser.name && user.name) updates.name = user.name;
-            
-            await users.updateOne({ email: user.email }, { $set: updates });
-            
-            token.id = existingUser._id.toString();
-            token.linkedin = existingUser.linkedin;
-          } else {
-            // Create new user for OAuth
-            const newUser = {
-              name: user.name || '',
-              email: user.email,
-              image: user.image || null,
-              provider: account.provider,
-              createdAt: new Date(),
-              lastLogin: new Date()
-            };
-            
-            const result = await users.insertOne(newUser);
-            token.id = result.insertedId.toString();
-          }
-        } catch (error) {
-          console.error('JWT callback error:', error);
-        }
+    async signIn({ user, account, profile }) {
+      console.log('SignIn callback - Provider:', account.provider);
+      console.log('SignIn callback - User:', user);
+      return true;
+    },
+    
+    async jwt({ token, user, account }) {
+      if (user) {
+        token.id = user.id;
+        token.provider = account?.provider;
       }
       return token;
     },
+    
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.provider = token.provider;
-        session.user.linkedin = token.linkedin;
-      }
+      session.user.id = token.id;
+      session.user.provider = token.provider;
       return session;
-    },
-    async signIn({ user, account, profile }) {
-      // Allow all sign-ins
-      return true;
     }
   }
 };
