@@ -309,6 +309,12 @@ export default function Login() {
             Sign up
           </Link>
         </div>
+
+        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 14, color: '#888' }}>
+          <Link href="/candidate/login" style={{ color: '#666', textDecoration: 'none' }}>
+            → Candidate Portal
+          </Link>
+        </p>
       </div>
     </div>
   );

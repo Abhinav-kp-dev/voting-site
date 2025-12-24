@@ -3,7 +3,21 @@ import clientPromise from '../../../../lib/mongodb';
 export default async function handler(req, res) {
   const { slug } = req.query;
   const client = await clientPromise;
-  const votes = client.db().collection('votes');
+  const db = client.db();
+  const votes = db.collection('votes');
+  
+  // Get all votes with candidate info
   const v = await votes.find({ teamSlug: slug }).toArray();
-  res.json({ voters: v });
+  
+  // Calculate vote counts per candidate
+  const voteCounts = {};
+  v.forEach(vote => {
+    voteCounts[vote.candidateId] = (voteCounts[vote.candidateId] || 0) + 1;
+  });
+  
+  res.json({ 
+    voters: v,
+    voteCounts,
+    totalVotes: v.length
+  });
 }

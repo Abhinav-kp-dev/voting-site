@@ -15,6 +15,13 @@ export default async function handler(req, res) {
     const db = client.db();
     const votes = db.collection('votes');
     const users = db.collection('users');
+    const teams = db.collection('teams');
+    
+    // Check if voting deadline has passed
+    const team = await teams.findOne({ slug: teamSlug });
+    if (team?.deadline && new Date(team.deadline) < new Date()) {
+      return res.status(400).json({ error: 'Voting deadline has passed', expired: true });
+    }
     
     // Check if user already voted
     const already = await votes.findOne({ teamSlug, userEmail: session.user.email });

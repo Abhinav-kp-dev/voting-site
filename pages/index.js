@@ -235,13 +235,16 @@ export default function Home() {
               {session.user.image && (
                 <img src={session.user.image} alt="Profile" style={styles.avatar} />
               )}
-              <span style={styles.userName}>{session.user.name || session.user.email}</span>
+              <Link href="/profile" style={{ ...styles.userName, textDecoration: 'none', color: '#fff' }}>
+                {session.user.name || session.user.email}
+              </Link>
               <button onClick={() => signOut()} style={styles.signOutBtn}>
                 Sign Out
               </button>
             </div>
           ) : (
             <>
+              <Link href="/candidate/login" style={styles.navLink}>Candidate Portal</Link>
               <Link href="/login" style={styles.navLink}>Sign In</Link>
               <Link href="/signup" style={{...styles.signOutBtn, textDecoration: 'none'}}>Get Started</Link>
             </>
@@ -268,6 +271,10 @@ export default function Home() {
               <Link href="/login" style={styles.primaryBtn}>Sign In</Link>
               <Link href="/signup" style={styles.secondaryBtn}>Create Account</Link>
             </div>
+            <p style={{ marginTop: 24, fontSize: 14, color: '#888' }}>
+              Want to create your own voting team?{' '}
+              <Link href="/candidate/signup" style={{ color: '#000', fontWeight: 600 }}>Register as Candidate</Link>
+            </p>
           </div>
         )}
 
