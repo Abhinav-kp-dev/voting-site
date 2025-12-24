@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     if (!session) return res.status(401).json({ error: 'Not authenticated' });
     if (req.method !== 'POST') return res.status(405).end();
     
-    const { teamSlug, candidateId } = req.body;
+    const { teamSlug, candidateId, linkedin: providedLinkedin } = req.body;
     if (!teamSlug || !candidateId) return res.status(400).json({ error: 'Missing fields' });
     
     const client = await clientPromise;
@@ -23,13 +23,26 @@ export default async function handler(req, res) {
     // Get user info for voter display
     const user = await users.findOne({ email: session.user.email });
     
+    // Get LinkedIn URL from various sources
+    let linkedinUrl = providedLinkedin || user?.linkedin || session.user.linkedin || '';
+    
+    // Validate LinkedIn URL is provided
+    if (!linkedinUrl || !linkedinUrl.includes('linkedin.com')) {
+      return res.status(400).json({ error: 'LinkedIn profile URL is required to vote', requireLinkedin: true });
+    }
+    
+    // Update user's LinkedIn if they provided a new one
+    if (providedLinkedin && user) {
+      await users.updateOne({ email: session.user.email }, { $set: { linkedin: providedLinkedin } });
+    }
+    
     // Record the vote
     await votes.insertOne({ 
       teamSlug, 
       candidateId, 
       userEmail: session.user.email, 
       name: user?.name || session.user.name || '', 
-      linkedin: user?.linkedin || session.user.linkedin || '',
+      linkedin: linkedinUrl,
       votedAt: new Date()
     });
     
